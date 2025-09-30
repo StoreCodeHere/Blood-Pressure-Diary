@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="shortcut icon" href="favicon.png" type="image/x-icon">
+  <title>Blood Pressure Diary</title>
+
+  <!-- Apply saved theme early to prevent FOUC -->
+  <script>
+    (function() {
+      const saved = localStorage.getItem('bpDiary.theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = saved || (prefersDark ? 'dark' : 'light');
+      if (theme === 'dark') document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'],
+          },
+          boxShadow: {
+            soft: '0 10px 25px -10px rgba(0,0,0,0.25)'
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-rose-50 to-white dark:from-zinc-950 dark:to-zinc-900 text-zinc-800 dark:text-zinc-100 font-display">
+  <!-- Header -->
+  <header class="sticky top-0 z-20 backdrop-blur bg-white/70 dark:bg-zinc-900/60 border-b border-zinc-200/60 dark:border-zinc-800">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center justify-between py-3">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow-soft">
+            <!-- Heart icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11.645 20.91l-.007-.003-.022-.011a20.55 20.55 0 01-1.162-.682 22.08 22.08 0 01-3.582-2.64C4.21 15.107 2 12.623 2 9.75 2 7.75 3.75 6 5.75 6c1.21 0 2.385.542 3.22 1.464l.03.033.966 1.09.966-1.09.03-.033C11.8 6.542 12.976 6 14.186 6 16.186 6 17.936 7.75 17.936 9.75c0 2.873-2.21 5.357-4.872 7.824a22.08 22.08 0 01-3.582 2.64 20.55 20.55 0 01-1.162.682l-.022.011-.007.003-.001.001a.75.75 0 01-.646 0l-.001-.001z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl sm:text-2xl font-semibold tracking-tight">Blood Pressure Diary</h1>
+            <p class="text-sm text-zinc-500 dark:text-zinc-400">Log systolic, diastolic, pulse, and notes. Data stays on your device.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="exportBtn" class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition">
+            <!-- Download icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-width="1.5" d="M12 3v12m0 0l-4-4m4 4l4-4M3 21h18"/>
+            </svg>
+            Export
+          </button>
+          <button id="clearBtn" class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-rose-200 text-rose-600 dark:border-rose-900 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition">
+            <!-- Trash icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-width="1.5" d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6m4-6v6"/>
+            </svg>
+            Clear All
+          </button>
+          <button id="themeToggle" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition" aria-label="Toggle theme">
+            <span id="themeIcon"></span>
+            <span class="hidden sm:inline" id="themeLabel">Theme</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <!-- Form card -->
+    <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-soft p-5 sm:p-6 mb-6">
+      <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+        <span class="inline-flex p-2 rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M11.25 3a.75.75 0 01.743.648l.007.102v8.586l2.47-2.47a.75.75 0 01.976-.073l.084.073a.75.75 0 010 1.06l-3.75 3.75a.75.75 0 01-.976.073l-.084-.073-3.75-3.75a.75.75 0 01.976-1.133l.084.073 2.47 2.47V3.75a.75.75 0 01.75-.75z"/>
+            <path d="M4.5 19.5h15a.75.75 0 01.102 1.493L19.5 21h-15a.75.75 0 01-.102-1.493L4.5 19.5z"/>
+          </svg>
+        </span>
+        Add / Edit Entry
+      </h2>
+
+      <form id="bpForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <input type="hidden" id="entryId" />
+        <div>
+          <label for="name" class="block text-sm font-medium mb-1">Patient Name</label>
+          <input id="name" type="text" placeholder="e.g., A. Kumar" class="w-full rounded-lg border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-rose-400 dark:focus:ring-rose-500 focus:border-transparent px-3 py-2" required />
+        </div>
+        <div>
+          <label for="systolic" class="block text-sm font-medium mb-1">Systolic (mmHg)</label>
+          <input id="systolic" type="number" inputmode="numeric" min="60" max="260" placeholder="e.g., 120" class="w-full rounded-lg border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-rose-400 dark:focus:ring-rose-500 focus:border-transparent px-3 py-2" required />
+        </div>
+        <div>
+          <label for="diastolic" class="block text-sm font-medium mb-1">Diastolic (mmHg)</label>
+          <input id="diastolic" type="number" inputmode="numeric" min="40" max="160" placeholder="e.g., 80" class="w-full rounded-lg border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-rose-400 dark:focus:ring-rose-500 focus:border-transparent px-3 py-2" required />
+        </div>
+        <div>
+          <label for="pulse" class="block text-sm font-medium mb-1">Pulse (bpm)</label>
+          <input id="pulse" type="number" inputmode="numeric" min="30" max="200" placeholder="e.g., 70" class="w-full rounded-lg border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-rose-400 dark:focus:ring-rose-500 focus:border-transparent px-3 py-2" />
+        </div>
+        <div>
+          <label for="datetime" class="block text-sm font-medium mb-1">Date & Time</label>
+          <input id="datetime" type="datetime-local" class="w-full rounded-lg border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-rose-400 dark:focus:ring-rose-500 focus:border-transparent px-3 py-2" required />
+        </div>
+        <div class="sm:col-span-2 lg:col-span-3">
+          <label for="notes" class="block text-sm font-medium mb-1">Notes</label>
+          <textarea id="notes" rows="2" placeholder="e.g., Before breakfast, felt dizzy, post-workout, medication taken, etc." class="w-full rounded-lg border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-rose-400 dark:focus:ring-rose-500 focus:border-transparent px-3 py-2"></textarea>
+        </div>
+        <div class="sm:col-span-2 lg:col-span-3 flex flex-wrap items-center gap-3 pt-2">
+          <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 transition shadow-soft">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-width="1.5" d="M5 12h14M12 5v14"/>
+            </svg>
+            <span id="submitLabel">Save Entry</span>
+          </button>
+          <button type="button" id="cancelEdit" class="hidden inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition">
+            Cancel Edit
+          </button>
+          <div id="formMsg" class="text-sm"></div>
+        </div>
+      </form>
+    </section>
+
+    <!-- Toolbar -->
+    <section class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <input id="search" type="text" placeholder="Search by name or notes..." class="w-full sm:w-80 rounded-lg border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 focus:ring-2 focus:ring-rose-400 dark:focus:ring-rose-500 focus:border-transparent px-3 py-2 pl-9" />
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-4 absolute left-3 top-2.5 text-zinc-400" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M10 4a6 6 0 014.472 9.966l4.281 4.28-1.414 1.415-4.28-4.281A6 6 0 1110 4zm0 2a4 4 0 100 8 4 4 0 000-8z"/>
+          </svg>
+        </div>
+      </div>
+
+      <div id="stats" class="text-sm text-zinc-600 dark:text-zinc-400"></div>
+    </section>
+
+    <!-- Entries -->
+    <section class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-soft">
+      <div class="overflow-x-auto">
+        <table class="min-w-full align-middle">
+          <thead class="bg-zinc-50 dark:bg-zinc-800/50 text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            <tr>
+              <th class="text-left px-4 py-3">Date & Time</th>
+              <th class="text-left px-4 py-3">Name</th>
+              <th class="text-left px-4 py-3">BP (Sys/Dia)</th>
+              <th class="text-left px-4 py-3">Pulse</th>
+              <th class="text-left px-4 py-3">MAP</th>
+              <th class="text-left px-4 py-3">Category</th>
+              <th class="text-left px-4 py-3">Notes</th>
+              <th class="text-left px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="entriesBody" class="divide-y divide-zinc-200 dark:divide-zinc-800 text-sm"></tbody>
+        </table>
+      </div>
+
+      <div id="emptyState" class="hidden p-10 flex flex-col items-center justify-center text-center">
+        <div class="text-5xl mb-3">🩺</div>
+        <h3 class="text-lg font-semibold mb-1">No entries yet</h3>
+        <p class="text-zinc-500 dark:text-zinc-400">Add your first reading using the form above.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-xs text-zinc-500 dark:text-zinc-400">
+    Built for personal tracking. This is not medical advice.
+  </footer>
+
+  <!-- Scripts -->
+  <script>
+    // Utilities
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    const KEYS = {
+      entries: 'bpDiary.entries',
+      theme: 'bpDiary.theme',
+    };
+
+    const getEntries = () => {
+      try { return JSON.parse(localStorage.getItem(KEYS.entries) || '[]'); }
+      catch { return []; }
+    };
+    const saveEntries = (list) => localStorage.setItem(KEYS.entries, JSON.stringify(list));
+
+    const formatDT = (iso) => {
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      } catch { return iso; }
+    };
+
+    const computeMAP = (sys, dia) => +(dia + (sys - dia) / 3).toFixed(0);
+    const pulsePressure = (sys, dia) => sys - dia;
+
+    function category(sys, dia) {
+      if (sys >= 180 || dia >= 120) return { label: 'Hypertensive Crisis', badge: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300' };
+      if (sys >= 140 || dia >= 90) return { label: 'Stage 2 HTN', badge: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' };
+      if ((sys >= 130 && sys <= 139) || (dia >= 80 && dia <= 89)) return { label: 'Stage 1 HTN', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300' };
+      if (sys >= 120 && sys <= 129 && dia < 80) return { label: 'Elevated', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' };
+      if (sys < 90 || dia < 60) return { label: 'Low', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' };
+      return { label: 'Normal', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' };
+    }
+
+    function renderStats(list) {
+      if (!list.length) {
+        $('#stats').textContent = '';
+        return;
+      }
+      const recent = list.slice(-10);
+      const avg = (arr, sel) => Math.round(arr.reduce((a, x) => a + sel(x), 0) / arr.length);
+      const avgSys = avg(recent, x => x.systolic);
+      const avgDia = avg(recent, x => x.diastolic);
+      const avgPulse = avg(recent.filter(x => Number.isFinite(x.pulse) && x.pulse > 0), x => x.pulse || 0) || '-';
+      const last = recent[recent.length - 1];
+      const cat = category(last.systolic, last.diastolic).label;
+      $('#stats').innerHTML = `
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800">Avg BP: <strong class="font-semibold">${avgSys}/${avgDia}</strong></span>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800">Avg Pulse: <strong class="font-semibold">${avgPulse}</strong></span>
+        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800">Last: <strong class="font-semibold">${last.systolic}/${last.diastolic}</strong> • ${cat}</span>
+      `;
+    }
+
+    function render(list = getEntries(), q = $('#search').value.trim().toLowerCase()) {
+      const body = $('#entriesBody');
+      body.innerHTML = '';
+      let filtered = list;
+      if (q) {
+        filtered = list.filter(e =>
+          (e.name || '').toLowerCase().includes(q) ||
+          (e.notes || '').toLowerCase().includes(q)
+        );
+      }
+
+      if (!filtered.length) {
+        $('#emptyState').classList.remove('hidden');
+      } else {
+        $('#emptyState').classList.add('hidden');
+      }
+
+      filtered.forEach(e => {
+        const c = category(e.systolic, e.diastolic);
+        const map = computeMAP(e.systolic, e.diastolic);
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40';
+        row.innerHTML = `
+          <td class="px-4 py-3 whitespace-nowrap">${formatDT(e.datetime)}</td>
+          <td class="px-4 py-3">${escapeHtml(e.name)}</td>
+          <td class="px-4 py-3 font-medium">${e.systolic}<span class="text-zinc-400">/</span>${e.diastolic}
+            <span class="ml-2 text-xs text-zinc-500">PP ${pulsePressure(e.systolic, e.diastolic)}</span>
+          </td>
+          <td class="px-4 py-3">${e.pulse || '-'}</td>
+          <td class="px-4 py-3">${map}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex px-2 py-1 rounded-md text-xs font-medium ${c.badge}">${c.label}</span>
+          </td>
+          <td class="px-4 py-3 max-w-[22ch] truncate" title="${escapeAttr(e.notes || '')}">${escapeHtml(e.notes || '')}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <button class="inline-flex items-center gap-1 text-rose-600 hover:text-rose-700 dark:text-rose-300 dark:hover:text-rose-200" data-action="edit" data-id="${e.id}" title="Edit">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.5" d="M4 21l4-1 11-11-3-3L5 17l-1 4zM14 6l3 3"/></svg>
+              </button>
+              <button class="inline-flex items-center gap-1 text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200" data-action="delete" data-id="${e.id}" title="Delete">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="1.5" d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 10v6m4-6v6"/></svg>
+              </button>
+            </div>
+          </td>
+        `;
+        body.appendChild(row);
+      });
+
+      renderStats(filtered.length ? filtered : list);
+      toggleHeaderButtons();
+    }
+
+    function toggleHeaderButtons() {
+      const has = getEntries().length > 0;
+      $('#clearBtn').classList.toggle('hidden', !has);
+      $('#exportBtn').classList.toggle('hidden', !has);
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function escapeAttr(str) { return escapeHtml(str); }
+
+    // Theme
+    function applyTheme(theme) {
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem(KEYS.theme, theme);
+      const icon = (theme === 'dark')
+        ? '<svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>'
+        : '<svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4" stroke-width="1.5"/><path stroke-width="1.5" d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5"/></svg>';
+      $('#themeIcon').innerHTML = icon;
+      $('#themeLabel').textContent = theme === 'dark' ? 'Dark' : 'Light';
+    }
+
+    // Form handling
+    function resetForm() {
+      $('#entryId').value = '';
+      $('#bpForm').reset();
+      setDefaultDateTime();
+      $('#submitLabel').textContent = 'Save Entry';
+      $('#cancelEdit').classList.add('hidden');
+      $('#formMsg').textContent = '';
+    }
+
+    function setDefaultDateTime() {
+      const now = new Date();
+      // round to nearest minute for better UX
+      now.setSeconds(0, 0);
+      const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString().slice(0,16);
+      $('#datetime').value = local;
+    }
+
+    function validateValues(sys, dia, pulse) {
+      const errors = [];
+      if (!(sys >= 60 && sys <= 260)) errors.push('Systolic must be 60–260.');
+      if (!(dia >= 40 && dia <= 160)) errors.push('Diastolic must be 40–160.');
+      if (sys <= dia) errors.push('Systolic should be greater than diastolic.');
+      if (pulse && !(pulse >= 30 && pulse <= 200)) errors.push('Pulse must be 30–200.');
+      return errors;
+    }
+
+    // Events
+    document.addEventListener('DOMContentLoaded', () => {
+      // Theme init
+      const saved = localStorage.getItem(KEYS.theme) || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      applyTheme(saved);
+
+      // Default datetime
+      setDefaultDateTime();
+
+      // Initial render
+      render();
+
+      // Theme toggle
+      $('#themeToggle').addEventListener('click', () => {
+        const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        applyTheme(current === 'dark' ? 'light' : 'dark');
+      });
+
+      // Search
+      $('#search').addEventListener('input', () => render());
+
+      // Form submit
+      $('#bpForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = $('#entryId').value || crypto.randomUUID();
+        const name = $('#name').value.trim();
+        const systolic = +$('#systolic').value;
+        const diastolic = +$('#diastolic').value;
+        const pulse = $('#pulse').value ? +$('#pulse').value : null;
+        const datetimeLocal = $('#datetime').value;
+        const notes = $('#notes').value.trim();
+
+        const errors = validateValues(systolic, diastolic, pulse);
+        const msg = $('#formMsg');
+        if (!name) errors.push('Patient name is required.');
+        if (!datetimeLocal) errors.push('Date & time is required.');
+
+        if (errors.length) {
+          msg.textContent = errors.join(' ');
+          msg.className = 'text-sm text-rose-600';
+          return;
+        }
+
+        const iso = new Date(datetimeLocal).toISOString();
+
+        const list = getEntries();
+        const idx = list.findIndex(x => x.id === id);
+        const entry = { id, name, systolic, diastolic, pulse, datetime: iso, notes };
+
+        if (idx >= 0) list[idx] = entry;
+        else list.push(entry);
+
+        saveEntries(list);
+        render(list);
+        msg.textContent = idx >= 0 ? 'Entry updated.' : 'Entry saved.';
+        msg.className = 'text-sm text-emerald-600';
+        resetForm();
+      });
+
+      // Cancel edit
+      $('#cancelEdit').addEventListener('click', resetForm);
+
+      // Table actions
+      $('#entriesBody').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        const list = getEntries();
+        const entry = list.find(x => x.id === id);
+        if (!entry) return;
+
+        if (action === 'edit') {
+          $('#entryId').value = entry.id;
+          $('#name').value = entry.name;
+          $('#systolic').value = entry.systolic;
+          $('#diastolic').value = entry.diastolic;
+          $('#pulse').value = entry.pulse ?? '';
+          $('#datetime').value = new Date(entry.datetime).toISOString().slice(0,16);
+          $('#notes').value = entry.notes || '';
+          $('#submitLabel').textContent = 'Update Entry';
+          $('#cancelEdit').classList.remove('hidden');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else if (action === 'delete') {
+          const ok = confirm('Delete this entry?');
+          if (!ok) return;
+          const next = list.filter(x => x.id !== id);
+          saveEntries(next);
+          render(next);
+          resetForm();
+        }
+      });
+
+      // Clear all
+      $('#clearBtn').addEventListener('click', () => {
+        const ok = confirm('This will delete all entries stored on this device. Continue?');
+        if (!ok) return;
+        saveEntries([]);
+        render([]);
+        resetForm();
+      });
+
+      // Export
+      $('#exportBtn').addEventListener('click', () => {
+        const data = getEntries();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+        a.href = url;
+        a.download = `bp-diary-${stamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
+    });
+  </script>
+</body>
+</html>
